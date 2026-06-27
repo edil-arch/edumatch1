@@ -12,6 +12,17 @@ func JoinProject(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
 	projectID := c.Param("id")
 
+	var project models.Project
+	if err := database.DB.First(&project, projectID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if project.CreatorID == userID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "You cannot join your own project"})
+		return
+	}
+
 	var existing models.Application
 	if err := database.DB.Where("user_id = ? AND project_id = ?", userID, projectID).First(&existing).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Already applied"})
@@ -21,11 +32,31 @@ func JoinProject(c *gin.Context) {
 	application := models.Application{
 		UserID:    userID,
 		ProjectID: parseUint(projectID),
-		Status:    "pending",
+		Status:    "accepted",
 	}
 
 	database.DB.Create(&application)
 	c.JSON(http.StatusCreated, application)
+}
+
+func LeaveProject(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+	projectID := c.Param("id")
+
+	var application models.Application
+
+	if err := database.DB.Where(
+		"user_id = ? AND project_id = ?",
+		userID,
+		projectID,
+	).First(&application).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "You are not in this project"})
+		return
+	}
+
+	database.DB.Delete(&application)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Left project"})
 }
 
 func MyApplications(c *gin.Context) {

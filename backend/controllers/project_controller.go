@@ -41,7 +41,16 @@ func GetProjectByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, project)
+	var members []models.Application
+	database.DB.
+		Preload("User").
+		Where("project_id = ? AND status = ?", project.ID, "accepted").
+		Find(&members)
+
+	c.JSON(http.StatusOK, gin.H{
+		"project": project,
+		"members": members,
+	})
 }
 
 func CreateProject(c *gin.Context) {
@@ -78,12 +87,16 @@ func UpdateProject(c *gin.Context) {
 	}
 
 	if project.CreatorID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only creator can edit project"})
 		return
 	}
 
 	var input models.Project
-	c.ShouldBindJSON(&input)
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"})
+		return
+	}
 
 	project.Title = input.Title
 	project.Description = input.Description
@@ -106,10 +119,12 @@ func DeleteProject(c *gin.Context) {
 	}
 
 	if project.CreatorID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only creator can delete project"})
 		return
 	}
 
+	database.DB.Where("project_id = ?", project.ID).Delete(&models.Application{})
+	database.DB.Where("project_id = ?", project.ID).Delete(&models.Message{})
 	database.DB.Delete(&project)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Project deleted"})
@@ -118,17 +133,42 @@ func DeleteProject(c *gin.Context) {
 func MyProjects(c *gin.Context) {
 	userID := c.MustGet("user_id").(uint)
 
-	var projects []models.Project
+	var created []models.Project
+	var joined []models.Application
 
-	database.DB.Where("creator_id = ?", userID).Find(&projects)
+	database.DB.Preload("Creator").Where("creator_id = ?", userID).Find(&created)
+	database.DB.Preload("Project").Where("user_id = ? AND status = ?", userID, "accepted").Find(&joined)
 
-	c.JSON(http.StatusOK, projects)
+	c.JSON(http.StatusOK, gin.H{
+		"created": created,
+		"joined":  joined,
+	})
 }
 
 func RecommendedProjects(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+
+	var user models.User
+	database.DB.First(&user, userID)
+
 	var projects []models.Project
 
-	database.DB.Order("created_at DESC").Limit(10).Find(&projects)
+	if user.Skills != "" {
+		database.DB.
+			Preload("Creator").
+			Where("stack ILIKE ?", "%"+user.Skills+"%").
+			Where("creator_id <> ?", userID).
+			Order("created_at DESC").
+			Limit(10).
+			Find(&projects)
+	} else {
+		database.DB.
+			Preload("Creator").
+			Where("creator_id <> ?", userID).
+			Order("created_at DESC").
+			Limit(10).
+			Find(&projects)
+	}
 
 	c.JSON(http.StatusOK, projects)
 }

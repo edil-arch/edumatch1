@@ -30,6 +30,8 @@ func SetupRoutes(r *gin.Engine) {
 	protected.DELETE("/projects/:id", controllers.DeleteProject)
 
 	protected.POST("/projects/:id/join", controllers.JoinProject)
+	protected.DELETE("/projects/:id/leave", controllers.LeaveProject)
+
 	protected.GET("/my-projects", controllers.MyProjects)
 	protected.GET("/my-applications", controllers.MyApplications)
 	protected.GET("/recommended-projects", controllers.RecommendedProjects)

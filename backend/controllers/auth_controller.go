@@ -5,6 +5,7 @@ import (
 	"edumatch-edil-backend/models"
 	"edumatch-edil-backend/utils"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -12,6 +13,7 @@ import (
 
 type RegisterInput struct {
 	Name     string `json:"name"`
+	Nickname string `json:"nickname"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -29,16 +31,24 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	input.Nickname = strings.TrimSpace(input.Nickname)
+
+	if input.Nickname == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nickname is required"})
+		return
+	}
+
 	hash, _ := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 
 	user := models.User{
 		Name:     input.Name,
+		Nickname: input.Nickname,
 		Email:    input.Email,
 		Password: string(hash),
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email or nickname already exists"})
 		return
 	}
 

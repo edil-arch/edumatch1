@@ -2,7 +2,6 @@ import { Link, useNavigate } from "react-router-dom";
 
 function Navbar() {
   const navigate = useNavigate();
-
   const token = localStorage.getItem("token");
 
   const logout = () => {
@@ -12,44 +11,30 @@ function Navbar() {
 
   return (
     <nav className="navbar">
-      <h2>EduMatch</h2>
+      <Link to={token ? "/dashboard" : "/projects"} className="brand">
+        <span className="brand-icon">E</span>
+        <span>EduMatch</span>
+      </Link>
 
       <div className="nav-links">
+        {token && <Link to="/dashboard">Dashboard</Link>}
 
         <Link to="/projects">Projects</Link>
 
-        {token && (
+        {token ? (
           <>
             <Link to="/projects/create">Create</Link>
-
-            <Link to="/my-projects">
-              My Projects
-            </Link>
-
-            <Link to="/applications">
-              Applications
-            </Link>
-
-            <Link to="/profile">
-              Profile
-            </Link>
-
-            <button onClick={logout}>
-              Logout
-            </button>
+            <Link to="/my-projects">My Projects</Link>
+            <Link to="/applications">Applications</Link>
+            <Link to="/profile">Profile</Link>
+            <button onClick={logout} className="logout-btn">Logout</button>
           </>
-        )}
-
-        {!token && (
+        ) : (
           <>
             <Link to="/login">Login</Link>
-
-            <Link to="/register">
-              Register
-            </Link>
+            <Link to="/register" className="register-link">Register</Link>
           </>
         )}
-
       </div>
     </nav>
   );
